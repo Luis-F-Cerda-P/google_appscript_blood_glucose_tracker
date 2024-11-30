@@ -1,9 +1,22 @@
-function getActiveUserData() {
+function getActiveUserIdentifiers() {
   // Acceder a la hoja que contiene la información de pacientes 
   // Obtener los datos como un array de arrays
   // Filtrar para obtener los usuarios activos
   // De los usuarios activos, extraer los datos relevante, en ese caso RUT y correo electrónico
 
+  // Asegurarnos de que los cambios a la hoja que reciba las respuestas del formulario se han aplicado
+  SpreadsheetApp.flush()
+  // Acceder a la hoja que contiene la información de pacientes 
+  const dataSpreadsheetId = PropertiesService.getScriptProperties().getProperty("dataSpreadsheetId")
+  const patientsSheet = SpreadsheetApp.openById(dataSpreadsheetId).getSheetByName("Pacientes")
+  // Obtener los datos como un array de arrays
+  const patientsData = patientsSheet.getRange('A1').getDataRegion().getValues()
+  // Filtrar para obtener los usuarios activos
+  const activeUsers = patientsData.filter(patientDataRow => patientDataRow[6] === true)
+  // De los usuarios activos, extraer los datos relevante, en ese caso RUT y correo electrónico
+  const userIdentifiers = activeUsers.map(activeUser => ({rut: activeUser[1], email: activeUser[4]}));
+  
+  return userIdentifiers
 }
 
 function signUpScript() {
