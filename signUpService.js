@@ -37,11 +37,69 @@ function getActiveUserIdentifiers() {
   return userIdentifiers
 }
 
+function generateRutAuthorizationRegexString(activeUsers) {
+  const authorizedRutsPattern = activeUsers.reduce((accumulator, current, index) => {
+    // Skip the header rows. TODO: Don't get the data using 'getDataRegion()' but rather a getRange(maxColumns, maxRows) or similar, so the header rows are not included in the data set
+    if (index === 0) return accumulator
+
+    const rut = current.rut
+    const digit = rut.slice(-1)
+    let rutForPush
+    // Make the Rut-regex-check case insensitive in case the verifier is the letter K
+    if (digit === "k" || digit === "K") {
+      rutForPush = rut.slice(0, -1) + "[kK]"
+    }
+    else {
+      rutForPush = rut
+    }
+
+    accumulator.push(rutForPush)
+
+    return accumulator
+  }, [])
+
+  const rutAuthorizationRegexString = "^(" + authorizedRutsPattern.join("|") + ")$"
+
+  return rutAuthorizationRegexString
+}
+
+function setRutAuthorizationPattern(authorizedRutsPattern) {
+  // 1. Abrir Form de registros de glicemia
+  const glucoseLevelsFormId = PropertiesService.getScriptProperties().getProperty("glucoseLevelsFormId")
+  const glucoseLevelsForm = FormApp.openById(glucoseLevelsFormId)
+  // 2. Buscar el input de los RUTS
+  const rutAccessInput = glucoseLevelsForm.getItemById(2108204445).asTextItem();
+  // 3. Meterle la 'cadena de validacion-RUTS' para PERMITIR que pasen los autorizados
+  const textValidation = FormApp.createTextValidation()
+    .setHelpText('Su RUT no se encuentra registrado')
+    .requireTextMatchesPattern(authorizedRutsPattern)
+    .build();
+
+  rutAccessInput.setValidation(textValidation);
+}
+
 function signUpScript() {
   // ✅: Líneas 1-5 de 'triggerInstaller': Instalarle un trigger al formulario de pacientes que ejecuta esta funcion (esta instalación se realiza una sola vez)
-  // Hacer el proceso que actualmente realiza authorizeRuts para darle acceso a este RUT a la planilla de Registro Glicemia (buscar valores, confeccionar un regex, vincular regex).
-  const activeUsers = getActiveUserIdentifiers()
+  // Obtener usuarios válidos y activos
   //    IMPORTANTE: Al momento de buscar los RUTs que formarán parte de los Regex chequear la flag de validez un usuario 
+  // Hacer el proceso que actualmente realiza authorizeRuts para darle acceso a este RUT a la planilla de Registro Glicemia (buscar valores, confeccionar un regex, vincular regex).
+  
+  // 1. Crear la cadena de regex correcta:
+  //   Buscar los datos
+  const activeUsers = getActiveUserIdentifiers()
+  //   Crear la 'cadena de validacion-RUTS' 
+  const authorizedRutsPattern = generateRutAuthorizationRegexString(activeUsers)
+  //   Crear la 'cadena de validacion-EMAILS' => No 
+  // 2. Agregar la cadena validación al input correcto: 
+  setRutAuthorizationPattern(authorizedRutsPattern)
+  
+  
+  // 5. Abrir form de registros de pacientes  => No! Google Forms no permite chequear exclusión y coincidencia de un mismo input, por lo que estamos limitados a escoger entre validar que ingresan un correo o rut válido (por medio de Regex) o ver si ingresan valor que ya existe en la hoja donde guardamos los datos. Entre estas dos, prefiero validar si la información es válida antes de si es o no repetida. 
+  // 6. Buscar el input de los RUTS => No! Google Forms no permite chequear exclusión y coincidencia de un mismo input, por lo que estamos limitados a escoger entre validar que ingresan un correo o rut válido (por medio de Regex) o ver si ingresan valor que ya existe en la hoja donde guardamos los datos. Entre estas dos, prefiero validar si la información es válida antes de si es o no repetida. 
+  // 7. Meterle la 'cadena de validacion-RUTS' para PROHIBIR que pasen los que ya están registrados => No! Google Forms no permite chequear exclusión y coincidencia de un mismo input, por lo que estamos limitados a escoger entre validar que ingresan un correo o rut válido (por medio de Regex) o ver si ingresan valor que ya existe en la hoja donde guardamos los datos. Entre estas dos, prefiero validar si la información es válida antes de si es o no repetida. 
+  // 8. Buscar el input de los EMAILS => No! Google Forms no permite chequear exclusión y coincidencia de un mismo input, por lo que estamos limitados a escoger entre validar que ingresan un correo o rut válido (por medio de Regex) o ver si ingresan valor que ya existe en la hoja donde guardamos los datos. Entre estas dos, prefiero validar si la información es válida antes de si es o no repetida. 
+  // 9. Meterle la 'cadena de validacion-EMAILS' para PROHIBIR que pasen los que ya están registrados => No! Google Forms no permite chequear exclusión y coincidencia de un mismo input, por lo que estamos limitados a escoger entre validar que ingresan un correo o rut válido (por medio de Regex) o ver si ingresan valor que ya existe en la hoja donde guardamos los datos. Entre estas dos, prefiero validar si la información es válida antes de si es o no repetida. 
+
   // Hacer el proceso que actualmente realiza authorizeRuts (buscar valores, confeccionar un regex, vincular regex). Quizá con otro nombre, pero invertido, y vincularlo al campo correspondiente de RegistroPacientes! Porque el RUT recién registrado no debería poderse registrar nuevamente
   //    IMPORTANTE: Este regex hay que actualizarlo para que incluya nuevas ideas que se describen en "Fujo Teórico" (google Doc)
   // Hacer el proceso que actualmente realiza authorizaeRuts pero con el correo. Quizá fusionado con el de RUTs? pero invertido!  Porque el email recién registrado no debería poderse registrar nuevamente. Vincular dicho regex al campo correspondiente de RegistroPacientes
