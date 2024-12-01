@@ -79,14 +79,14 @@ function setRutAuthorizationPattern(authorizedRutsPattern) {
 }
 
 function createAndConnectDestinationForUserResponse(submittedResponse) {
-  function sendEmailSignUpNotification(userCopyUrl = "google.com", userfileName = "Nombre-Paciente-Prueba") {
+  function sendEmailSignUpNotification(userCopyUrl, userfileName, userEmail) {
     GmailApp.createDraft(
-      'luiscerdamun@gmail.com',
+      userEmail,
       userfileName,
       'Gracias por registrarse,\n\nEn el siguiente link podrá ingresar con su RUT y registrar sus lecturas de glicemia:\nhttps://docs.google.com/forms/d/e/1FAIpQLSfv6IqWeb2lDFJjsVC-PKx96UQZkuT1KYk58BPQ_KnAlYo5zQ/viewform\n\nPor favor guarde el enlace al formulario en \'Favoritos\', o marque este correo como importante para conseguirlo fácilmente en el futuro\n\nTome en cuenta que las lecturas que se realizan después de alguna comida deben tomarse sesenta (60) mins después de comer\n\nEncontrará un resumen de sus respuestas en el siguiente archivo: \n' + `<a href=${userCopyUrl}>Reporte de mis lecturas</a>`,
       {
-        name: 'Automatic Emailer Script',
-        htmlBody: 'Gracias por registrarse,<br>En el siguiente link podrá ingresar con su RUT y registrar sus lecturas de glicemia:<br>' + "<a href=\"https://docs.google.com/forms/d/e/1FAIpQLSfv6IqWeb2lDFJjsVC-PKx96UQZkuT1KYk58BPQ_KnAlYo5zQ/viewform\">Cargar una lectura de glicemia</a>" + '<br>Por favor guarde el enlace al formulario en \'Favoritos\', o marque este correo como importante para conseguirlo fácilmente en el futuro<br>Tome en cuenta que las lecturas que se realizan después de alguna comida deben tomarse sesenta (60) mins después de comer<br>Encontrará un resumen de sus respuestas en el siguiente archivo: <br>' + `<a href="${userCopyUrl}">Reporte de mis lecturas</a>`
+        name: 'Correo Automático - Registro Exitoso',
+        htmlBody: 'Gracias por registrarse,<br><br>En el siguiente link podrá ingresar con su RUT y registrar sus lecturas de glicemia:<br>' + "<a href=\"https://docs.google.com/forms/d/e/1FAIpQLSfv6IqWeb2lDFJjsVC-PKx96UQZkuT1KYk58BPQ_KnAlYo5zQ/viewform\">Cargar una lectura de glicemia</a>" + '<br><br>Por favor guarde el enlace al formulario en \'Favoritos\', o marque este correo como importante para conseguirlo fácilmente en el futuro<br><br>Tome en cuenta que las lecturas que se realizan después de alguna comida deben tomarse sesenta (60) mins después de comer<br><br>Encontrará un resumen de sus respuestas en el siguiente archivo: <br><br>' + `<a href="${userCopyUrl}">Reporte de mis lecturas</a>`
       },
     ).send()
   }
@@ -125,7 +125,8 @@ function createAndConnectDestinationForUserResponse(submittedResponse) {
   // 6. Share it with the user with 'read' access
   userCopy.addViewer(userInfo['Dirección de correo electrónico'][0])
   // 7. Notify them via email ? 
-  sendEmailSignUpNotification(userCopyUrl, userfileName)
+  const userEmail = userInfo['Dirección de correo electrónico'][0]
+  sendEmailSignUpNotification(userCopyUrl, userfileName, userEmail)
 }
 
 function signUpScript(submittedResponse) {
