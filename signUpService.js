@@ -17,7 +17,7 @@ function getActiveUserIdentifiers() {
   const uniqueActiveUsers = patientsDataNewestToOldest.reduce((accumulatorUniqueActiveUsers, currentPatientDataRow) => {
     const curPatientRut = currentPatientDataRow[1]
     const curPatientEmail = currentPatientDataRow[4]
-    
+
     if (
       !uniqueRuts.has(curPatientRut) &&
       !uniqueEmails.has(curPatientEmail) &&
@@ -32,8 +32,8 @@ function getActiveUserIdentifiers() {
   }, [])
 
   // De los usuarios activos, extraer los datos relevantes, en ese caso RUT y correo electrónico
-  const userIdentifiers = uniqueActiveUsers.map(activeUser => ({rut: activeUser[1], email: activeUser[4]}));
-  
+  const userIdentifiers = uniqueActiveUsers.map(activeUser => ({ rut: activeUser[1], email: activeUser[4] }));
+
   return userIdentifiers
 }
 
@@ -78,12 +78,62 @@ function setRutAuthorizationPattern(authorizedRutsPattern) {
   rutAccessInput.setValidation(textValidation);
 }
 
-function signUpScript() {
+function createAndConnectDestinationForUserResponse(submittedResponse) {
+  function sendEmailSignUpNotification(userCopyUrl = "google.com", userfileName = "Nombre-Paciente-Prueba") {
+    GmailApp.createDraft(
+      'luiscerdamun@gmail.com',
+      userfileName,
+      'Gracias por registrarse,\n\nEn el siguiente link podrá ingresar con su RUT y registrar sus lecturas de glicemia:\nhttps://docs.google.com/forms/d/e/1FAIpQLSfv6IqWeb2lDFJjsVC-PKx96UQZkuT1KYk58BPQ_KnAlYo5zQ/viewform\n\nPor favor guarde el enlace al formulario en \'Favoritos\', o marque este correo como importante para conseguirlo fácilmente en el futuro\n\nTome en cuenta que las lecturas que se realizan después de alguna comida deben tomarse sesenta (60) mins después de comer\n\nEncontrará un resumen de sus respuestas en el siguiente archivo: \n' + `<a href=${userCopyUrl}>Reporte de mis lecturas</a>`,
+      {
+        name: 'Automatic Emailer Script',
+        htmlBody: 'Gracias por registrarse,<br>En el siguiente link podrá ingresar con su RUT y registrar sus lecturas de glicemia:<br>' + "<a href=\"https://docs.google.com/forms/d/e/1FAIpQLSfv6IqWeb2lDFJjsVC-PKx96UQZkuT1KYk58BPQ_KnAlYo5zQ/viewform\">Cargar una lectura de glicemia</a>" + '<br>Por favor guarde el enlace al formulario en \'Favoritos\', o marque este correo como importante para conseguirlo fácilmente en el futuro<br>Tome en cuenta que las lecturas que se realizan después de alguna comida deben tomarse sesenta (60) mins después de comer<br>Encontrará un resumen de sus respuestas en el siguiente archivo: <br>' + `<a href="${userCopyUrl}">Reporte de mis lecturas</a>`
+      },
+    ).send()
+  }
+  // 1. Get the Spreadsheet template 
+  const spreadsheetTemplateId = PropertiesService.getScriptProperties().getProperty("spreadsheetTemplateId")
+  const spreadsheetTemplate = SpreadsheetApp.openById(spreadsheetTemplateId)
+  // 2. Copy it 
+  const userInfo = submittedResponse.namedValues
+  const userFullName = userInfo['Nombre'][0] + " " + userInfo['Apellido'][0]
+  Logger.log(userInfo);
+  const userfileName = `${userInfo['RUT'][0]}, ${userFullName}, Registros Glicemia`
+  const userCopy = spreadsheetTemplate.copy(userfileName)
+  const userCopyId = userCopy.getId()
+  const userCopyAsDriveFile = DriveApp.getFileById(userCopyId)
+  const patientFilesFolderId = PropertiesService.getScriptProperties().getProperty("patientFilesFolderId")
+  const patienFilesFolder = DriveApp.getFolderById(patientFilesFolderId)
+  userCopyAsDriveFile.moveTo(patienFilesFolder)
+  // 3. Replace specific data with data in the response 
+  userCopy.getSheetByName("Paciente").getRange(2, 1, 1, 6).setValues([submittedResponse.values])
+  // const reportName = userCopy.getSheetByName("Cálculos").getRange(3,3).setValue()
+  // const reportRut = userCopy.getSheetByName("Cálculos").getRange(3, 6).setValue(userInfo['RUT'][0])
+  // 4. Get the link for the copy 
+  const userCopyUrl = userCopy.getUrl()
+  // 5. Add it to the 'Pacientes' file 
+  const patientsSheet = submittedResponse.range.getSheet()
+  const responseRange = submittedResponse.range
+  const responseRow = responseRange.getRow()
+  const urlColumn = responseRange.getColumn() + responseRange.getWidth() + 4
+  const activeFlagColumn = responseRange.getColumn() + responseRange.getWidth() + 3
+  const urlCell = patientsSheet.getRange(responseRow, urlColumn)
+  const activeFlagCell = patientsSheet.getRange(responseRow, activeFlagColumn)
+
+  activeFlagCell.insertCheckboxes()
+    .check();
+  urlCell.setValue(userCopyUrl)
+  // 6. Share it with the user with 'read' access
+  userCopy.addViewer(userInfo['Dirección de correo electrónico'][0])
+  // 7. Notify them via email ? 
+  sendEmailSignUpNotification(userCopyUrl, userfileName)
+}
+
+function signUpScript(submittedResponse) {
   // ✅: Líneas 1-5 de 'triggerInstaller': Instalarle un trigger al formulario de pacientes que ejecuta esta funcion (esta instalación se realiza una sola vez)
   // Obtener usuarios válidos y activos
   //    IMPORTANTE: Al momento de buscar los RUTs que formarán parte de los Regex chequear la flag de validez un usuario 
   // Hacer el proceso que actualmente realiza authorizeRuts para darle acceso a este RUT a la planilla de Registro Glicemia (buscar valores, confeccionar un regex, vincular regex).
-  
+
   // 1. Crear la cadena de regex correcta:
   //   Buscar los datos
   const activeUsers = getActiveUserIdentifiers()
@@ -92,8 +142,10 @@ function signUpScript() {
   //   Crear la 'cadena de validacion-EMAILS' => No 
   // 2. Agregar la cadena validación al input correcto: 
   setRutAuthorizationPattern(authorizedRutsPattern)
-  
-  
+  // 3. Crear y conectar con la aplicación la copia del documento de Excel para nuevos usuarios 
+  createAndConnectDestinationForUserResponse(submittedResponse)
+
+
   // 5. Abrir form de registros de pacientes  => No! Google Forms no permite chequear exclusión y coincidencia de un mismo input, por lo que estamos limitados a escoger entre validar que ingresan un correo o rut válido (por medio de Regex) o ver si ingresan valor que ya existe en la hoja donde guardamos los datos. Entre estas dos, prefiero validar si la información es válida antes de si es o no repetida. 
   // 6. Buscar el input de los RUTS => No! Google Forms no permite chequear exclusión y coincidencia de un mismo input, por lo que estamos limitados a escoger entre validar que ingresan un correo o rut válido (por medio de Regex) o ver si ingresan valor que ya existe en la hoja donde guardamos los datos. Entre estas dos, prefiero validar si la información es válida antes de si es o no repetida. 
   // 7. Meterle la 'cadena de validacion-RUTS' para PROHIBIR que pasen los que ya están registrados => No! Google Forms no permite chequear exclusión y coincidencia de un mismo input, por lo que estamos limitados a escoger entre validar que ingresan un correo o rut válido (por medio de Regex) o ver si ingresan valor que ya existe en la hoja donde guardamos los datos. Entre estas dos, prefiero validar si la información es válida antes de si es o no repetida. 
