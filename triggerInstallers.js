@@ -12,3 +12,12 @@ function spreadsheetFormSubmitTrigger() {
     .onFormSubmit()
     .create();
 }
+
+function formSubmissionRouterSubmitTrigger() {
+  const dataSheetId = PropertiesService.getScriptProperties().getProperty("dataSpreadsheetId")
+  const spreadsheet = SpreadsheetApp.openById(dataSheetId);
+  ScriptApp.newTrigger('formSubmissionRouter')
+    .forSpreadsheet(spreadsheet)
+    .onFormSubmit()
+    .create();
+}
