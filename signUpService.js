@@ -10,7 +10,8 @@ function getActiveUserIdentifiers() {
   const dataSpreadsheetId = PropertiesService.getScriptProperties().getProperty("dataSpreadsheetId")
   const patientsSheet = SpreadsheetApp.openById(dataSpreadsheetId).getSheetByName("Pacientes")
   // Obtener los datos como un array de arrays. Se invierten para que estén desde el más reciente al más antiguo, ya que en la hoja se guardan de más antiguo a más reciente
-  const patientsDataNewestToOldest = patientsSheet.getRange('A1').getDataRegion().getValues().toReversed()
+  const rowsExcludingHeaders = patientsSheet.getLastRow() - 1
+  const patientsDataNewestToOldest = patientsSheet.getRange(2, 1, rowsExcludingHeaders, patientsSheet.getLastColumn()).getValues().toReversed()
   // Filtrar para obtener los usuarios activos, tomando en cuenta únicamente el registro más reciente si es que algún rut o email se repite
   const uniqueEmails = new Set()
   const uniqueRuts = new Set()
@@ -21,7 +22,7 @@ function getActiveUserIdentifiers() {
     if (
       !uniqueRuts.has(curPatientRut) &&
       !uniqueEmails.has(curPatientEmail) &&
-      currentPatientDataRow[6] === true
+      currentPatientDataRow[9] === true
     ) {
       uniqueRuts.add(curPatientRut)
       uniqueEmails.add(curPatientEmail)
@@ -38,9 +39,7 @@ function getActiveUserIdentifiers() {
 }
 
 function generateRutAuthorizationRegexString(activeUsers) {
-  const authorizedRutsPattern = activeUsers.reduce((accumulator, current, index) => {
-    // Skip the header rows. TODO: Don't get the data using 'getDataRegion()' but rather a getRange(maxColumns, maxRows) or similar, so the header rows are not included in the data set
-    if (index === 0) return accumulator
+  const authorizedRutsPattern = activeUsers.reduce((accumulator, current, index) => { 
 
     const rut = current.rut
     const digit = rut.slice(-1)
@@ -137,6 +136,8 @@ function signUpScript(submittedResponse) {
 
   // 1. Crear la cadena de regex correcta:
   //   Buscar los datos
+  createAndConnectDestinationForUserResponse(submittedResponse)
+  SpreadsheetApp.flush()
   const activeUsers = getActiveUserIdentifiers()
   //   Crear la 'cadena de validacion-RUTS' 
   const authorizedRutsPattern = generateRutAuthorizationRegexString(activeUsers)
@@ -144,7 +145,6 @@ function signUpScript(submittedResponse) {
   // 2. Agregar la cadena validación al input correcto: 
   setRutAuthorizationPattern(authorizedRutsPattern)
   // 3. Crear y conectar con la aplicación la copia del documento de Excel para nuevos usuarios 
-  createAndConnectDestinationForUserResponse(submittedResponse)
 
 
   // 5. Abrir form de registros de pacientes  => No! Google Forms no permite chequear exclusión y coincidencia de un mismo input, por lo que estamos limitados a escoger entre validar que ingresan un correo o rut válido (por medio de Regex) o ver si ingresan valor que ya existe en la hoja donde guardamos los datos. Entre estas dos, prefiero validar si la información es válida antes de si es o no repetida. 
