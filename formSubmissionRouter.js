@@ -5,6 +5,9 @@ function formSubmissionRouter(formSubmitEvent) {
     case "Pacientes":
       signUpScript(formSubmitEvent)
       break;
+    case "Registros Glicemia":
+      bloodSugarReadingScript(formSubmitEvent)
+      break;
   
     default:
       break;
