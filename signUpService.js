@@ -22,7 +22,7 @@ function getActiveUserIdentifiers() {
     if (
       !uniqueRuts.has(curPatientRut) &&
       !uniqueEmails.has(curPatientEmail) &&
-      currentPatientDataRow[9] === true
+      currentPatientDataRow[11] === true
     ) {
       uniqueRuts.add(curPatientRut)
       uniqueEmails.add(curPatientEmail)
@@ -128,6 +128,15 @@ function createAndConnectDestinationForUserResponse(submittedResponse) {
   sendEmailSignUpNotification(userCopyUrl, userfileName, userEmail)
 }
 
+function activeUsersUpdateScript() {
+  const activeUsers = getActiveUserIdentifiers()
+  //   Crear la 'cadena de validacion-RUTS' 
+  const authorizedRutsPattern = generateRutAuthorizationRegexString(activeUsers)
+  //   Crear la 'cadena de validacion-EMAILS' => No 
+  // 2. Agregar la cadena validación al input correcto: 
+  setRutAuthorizationPattern(authorizedRutsPattern)
+}
+
 function signUpScript(submittedResponse) {
   // ✅: Líneas 1-5 de 'triggerInstaller': Instalarle un trigger al formulario de pacientes que ejecuta esta funcion (esta instalación se realiza una sola vez)
   // Obtener usuarios válidos y activos
@@ -138,12 +147,7 @@ function signUpScript(submittedResponse) {
   //   Buscar los datos
   createAndConnectDestinationForUserResponse(submittedResponse)
   SpreadsheetApp.flush()
-  const activeUsers = getActiveUserIdentifiers()
-  //   Crear la 'cadena de validacion-RUTS' 
-  const authorizedRutsPattern = generateRutAuthorizationRegexString(activeUsers)
-  //   Crear la 'cadena de validacion-EMAILS' => No 
-  // 2. Agregar la cadena validación al input correcto: 
-  setRutAuthorizationPattern(authorizedRutsPattern)
+  activeUsersUpdateScript()
   // 3. Crear y conectar con la aplicación la copia del documento de Excel para nuevos usuarios 
 
 
@@ -163,4 +167,19 @@ function signUpScript(submittedResponse) {
   // Darles acceso a las pacientes de solo lectura! 
   // Mandarles un correo a las pacientes si es que todo salió bien
   //    Incluir en el correo los links relevantes: Form de Registro Glicemia y la hoja que les pertenece
+}
+
+function activeUsersManualChange(event) {
+  // Tomar el evento
+  Logger.log("event.range.getSheet().getName(): ")
+  Logger.log(event.range.getSheet().getName())
+  if (event.range.getSheet().getName() !== 'Pacientes') return
+  Logger.log("event.range.getColumn(): ")
+  Logger.log(event.range.getColumn())
+  if (event.range.getColumn() !== 10) return
+  Logger.log("event.range.getRow(): ")
+  Logger.log(event.range.getRow())
+  if (event.range.getRow() === 1) return
+
+  activeUsersUpdateScript();
 }
